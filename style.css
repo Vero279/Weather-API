@@ -15,30 +15,29 @@ body {
 #citySelect {
   padding: 10px 20px;
   border-radius: 8px;
-  border: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  border: 1px solid #f6ad55; /* Sunrise Orange */
+  background: #0d1b2a;       /* Midnight Blue */
+  color: #f6ad55;            /* Sunrise Orange */
+  font-weight: bold;
   cursor: pointer;
-  backdrop-filter: blur(5px);
 }
 
-#display {
+.weather-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.stat-card {
   background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  padding: 30px;
-  width: 100%;
-  max-width: 450px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-  transition: opacity 0.3s ease;
+  padding: 15px;
+  border-radius: 12px;
+  text-align: center;
 }
 
-.temp-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+.stat-value {
+  display: block;
+  font-size: 1.2rem;
+  color: #f6ad55;
 }
-
-.temp-value { color: #f6ad55; font-weight: bold; }
