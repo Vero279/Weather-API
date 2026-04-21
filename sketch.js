@@ -1,60 +1,100 @@
+// City list with coordinates
 const CITIES = [
-  { name: "Berlin", lat: 52.52, lon: 13.41 },
-  { name: "Lisbon", lat: 38.72, lon: -9.14 },
-  { name: "Porto", lat: 41.15, lon: -8.61 }
-  // ... adicione os outros conforme necessário
+  { name: "Berlin",    lat: 52.52,  lon: 13.41  },
+  { name: "Lisbon",    lat: 38.72,  lon: -9.14  },
+  { name: "Porto",     lat: 41.15,  lon: -8.61  },
+  { name: "London",    lat: 51.51,  lon: -0.13  },
+  { name: "Paris",     lat: 48.85,  lon: 2.35   },
+  { name: "New York",  lat: 40.71,  lon: -74.01 },
+  { name: "Tokyo",     lat: 35.68,  lon: 139.69 },
+  { name: "Sydney",    lat: -33.87, lon: 151.21 },
+  { name: "São Paulo", lat: -23.55, lon: -46.63 },
+  { name: "Cairo",     lat: 30.06,  lon: 31.25  },
 ];
 
 function setup() {
   noCanvas();
+
+  // Populate dropdown
   const sel = select("#citySelect");
   CITIES.forEach((city, i) => {
-    let opt = createElement("option", city.name).value(i);
+    const opt = createElement("option", city.name);
+    opt.attribute("value", i);
     opt.parent(sel);
   });
-  sel.changed(() => loadCity(CITIES[sel.value()]));
+
+  // Load first city on start
   loadCity(CITIES[0]);
+
+  // React to dropdown change
+  sel.changed(() => {
+    const city = CITIES[int(sel.value())];
+    loadCity(city);
+  });
 }
 
-async function loadCity(city) {
+function loadCity(city) {
   const display = select("#display");
-  display.html('<p id="loading">A carregar 5 dias de previsão...</p>');
+  display.html('<p id="loading">Loading...</p>');
 
-  // Alterado forecast_days para 5
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}` +
-              `&hourly=temperature_2m&forecast_days=5`;
+  const url = `https://api.open-meteo.com/v1/forecast` +
+    `?latitude=${city.lat}&longitude=${city.lon}` +
+    `&daily=temperature_2m_max,temperature_2m_min,relative_humidity_2m_max,wind_speed_10m_max` +
+    `&timezone=auto`;
 
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    renderFiveDays(city.name, data);
-  } catch (err) {
-    display.html(`<p style="color:salmon;">Erro: ${err}</p>`);
-  }
+  fetch(url)
+    .then((res) => res.json())
+    .then((data) => {
+      const dates = data.daily.time;
+      const tempMax = data.daily.temperature_2m_max;
+      const tempMin = data.daily.temperature_2m_min;
+      const humidity = data.daily.relative_humidity_2m_max;
+      const windSpeed = data.daily.wind_speed_10m_max;
+      const tempUnit = data.daily_units.temperature_2m_max;
+      const windUnit = data.daily_units.wind_speed_10m_max;
+      renderWeeklyForecast(city.name, dates, tempMax, tempMin, humidity, windSpeed, tempUnit, windUnit);
+    })
+    .catch((err) => {
+      display.html(`<p style="color:salmon;">Error loading data: ${err}</p>`);
+    });
 }
 
-function renderFiveDays(cityName, data) {
+function renderWeeklyForecast(cityName, dates, tempMax, tempMin, humidity, windSpeed, tempUnit, windUnit) {
   const display = select("#display");
-  display.html(`<h2>📍 ${cityName} — Previsão 5 Dias</h2>`);
+  display.html("");
 
-  const times = data.hourly.time;
-  const temps = data.hourly.temperature_2m;
-  const unit = data.hourly_units.temperature_2m;
+  const title = createElement("h2", `📍 ${cityName} — 7-Day Forecast`);
+  title.parent(display);
 
-  // Agrupa dados por dia (a cada 24 horas)
-  for (let d = 0; d < 5; d++) {
-    let dayContainer = createElement("div").class("day-group");
-    let date = times[d * 24].split("T")[0];
-    dayContainer.html(`<h3>📅 ${date}</h3>`);
-    dayContainer.parent(display);
+  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-    // Mostra apenas 3 horários por dia para manter a UI limpa
-    for (let i = 0; i < 24; i += 8) {
-      let index = (d * 24) + i;
-      let time = times[index].split("T")[1];
-      let row = createElement("div", `<span>${time}</span><span class="temp-value">${temps[index]} ${unit}</span>`);
-      row.class("temp-row");
-      row.parent(dayContainer);
-    }
+  for (let i = 0; i < dates.length; i++) {
+    const date = new Date(dates[i]);
+    const dayName = daysOfWeek[date.getDay()];
+    const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+    const dayCard = createElement("div");
+    dayCard.class("day-card");
+    dayCard.html(`
+      <div class="day-header">
+        <span class="day-name">${dayName}</span>
+        <span class="date">${dateStr}</span>
+      </div>
+      <div class="weather-details">
+        <div class="detail-item">
+          <span class="detail-label">🌡️ Temperature</span>
+          <span class="detail-value">${tempMax[i]}° / ${tempMin[i]}° ${tempUnit}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">💧 Humidity</span>
+          <span class="detail-value">${humidity[i]}%</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">💨 Wind Speed</span>
+          <span class="detail-value">${windSpeed[i]} ${windUnit}</span>
+        </div>
+      </div>
+    `);
+    dayCard.parent(display);
   }
 }
