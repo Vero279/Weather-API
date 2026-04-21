@@ -23,29 +23,44 @@ function setup() {
   loadCity(CITIES[0]);
 }
 
+// Atualize a URL em loadCity:
 async function loadCity(city) {
   const display = select("#display");
-  display.style("opacity", "0.5"); // Feedback visual de loading
+  display.style("opacity", "0.5");
+  
+  // Adicionados: wind_speed_10m e relative_humidity_2m
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}` +
+              `&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m&forecast_days=1`;
   
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&hourly=temperature_2m&forecast_days=1`;
     const res = await fetch(url);
     const data = await res.json();
-    
-    renderTemperatures(city.name, data.hourly.time, data.hourly.temperature_2m, data.hourly_units.temperature_2m);
+    renderData(city.name, data);
     display.style("opacity", "1");
   } catch (err) {
     display.html(`<p style="color:salmon;">Erro ao carregar dados.</p>`);
   }
 }
 
-function renderTemperatures(name, times, temps, unit) {
+function renderData(name, data) {
   const display = select("#display");
+  const now = 0; // Índice da hora atual
+  
   display.html(`<h2>📍 ${name}</h2>`);
   
-  for (let i = 0; i < times.length; i += 3) {
-    let row = createElement("div", `<span>${times[i].split("T")[1]}</span><span class="temp-value">${temps[i]} ${unit}</span>`);
-    row.class("temp-row");
-    row.parent(display);
-  }
+  // Container de Stats
+  let grid = createElement("div").class("weather-grid");
+  grid.parent(display);
+
+  const stats = [
+    { label: "Temp", val: data.hourly.temperature_2m[now] + "°C" },
+    { label: "Humidade", val: data.hourly.relative_humidity_2m[now] + "%" },
+    { label: "Vento", val: data.hourly.wind_speed_10m[now] + " km/h" }
+  ];
+
+  stats.forEach(s => {
+    let card = createElement("div", `<span>${s.label}</span><span class="stat-value">${s.val}</span>`);
+    card.class("stat-card");
+    card.parent(grid);
+  });
 }
