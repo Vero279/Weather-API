@@ -39,36 +39,62 @@ function loadCity(city) {
 
   const url = `https://api.open-meteo.com/v1/forecast` +
     `?latitude=${city.lat}&longitude=${city.lon}` +
-    `&hourly=temperature_2m&forecast_days=1`;
+    `&daily=temperature_2m_max,temperature_2m_min,relative_humidity_2m_max,wind_speed_10m_max` +
+    `&timezone=auto`;
 
   fetch(url)
     .then((res) => res.json())
     .then((data) => {
-      const times = data.hourly.time;
-      const temps = data.hourly.temperature_2m;
-      const unit  = data.hourly_units.temperature_2m;
-      renderTemperatures(city.name, times, temps, unit);
+      const dates = data.daily.time;
+      const tempMax = data.daily.temperature_2m_max;
+      const tempMin = data.daily.temperature_2m_min;
+      const humidity = data.daily.relative_humidity_2m_max;
+      const windSpeed = data.daily.wind_speed_10m_max;
+      const tempUnit = data.daily_units.temperature_2m_max;
+      const windUnit = data.daily_units.wind_speed_10m_max;
+      renderWeeklyForecast(city.name, dates, tempMax, tempMin, humidity, windSpeed, tempUnit, windUnit);
     })
     .catch((err) => {
       display.html(`<p style="color:salmon;">Error loading data: ${err}</p>`);
     });
 }
 
-function renderTemperatures(cityName, times, temps, unit) {
+function renderWeeklyForecast(cityName, dates, tempMax, tempMin, humidity, windSpeed, tempUnit, windUnit) {
   const display = select("#display");
   display.html("");
 
-  const title = createElement("h2", `📍 ${cityName} — Today's Temperatures`);
+  const title = createElement("h2", `📍 ${cityName} — 7-Day Forecast`);
   title.parent(display);
 
-  // Show every 3 hours to keep it readable
-  for (let i = 0; i < times.length; i += 3) {
-    const time = times[i].split("T")[1]; // extract HH:MM
-    const temp = temps[i];
+  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-    const row = createElement("div");
-    row.class("temp-row");
-    row.html(`<span>${time}</span><span class="temp-value">${temp} ${unit}</span>`);
-    row.parent(display);
+  for (let i = 0; i < dates.length; i++) {
+    const date = new Date(dates[i]);
+    const dayName = daysOfWeek[date.getDay()];
+    const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+    const dayCard = createElement("div");
+    dayCard.class("day-card");
+    dayCard.html(`
+      <div class="day-header">
+        <span class="day-name">${dayName}</span>
+        <span class="date">${dateStr}</span>
+      </div>
+      <div class="weather-details">
+        <div class="detail-item">
+          <span class="detail-label">🌡️ Temperature</span>
+          <span class="detail-value">${tempMax[i]}° / ${tempMin[i]}° ${tempUnit}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">💧 Humidity</span>
+          <span class="detail-value">${humidity[i]}%</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">💨 Wind Speed</span>
+          <span class="detail-value">${windSpeed[i]} ${windUnit}</span>
+        </div>
+      </div>
+    `);
+    dayCard.parent(display);
   }
 }
