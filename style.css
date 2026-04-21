@@ -41,3 +41,22 @@ body {
   font-size: 1.2rem;
   color: #f6ad55;
 }
+.day-group {
+  margin-top: 25px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 15px;
+  border-radius: 12px;
+}
+
+.day-group h3 {
+  color: #90cdf4;
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding-bottom: 5px;
+}
+
+#display {
+  max-height: 80vh;
+  overflow-y: auto; /* Permite scroll se necessário */
+}
