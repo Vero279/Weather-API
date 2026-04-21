@@ -66,33 +66,25 @@ function renderWeeklyForecast(cityName, dates, tempMax, tempMin, humidity, windS
   const title = createElement("h2", `📍 ${cityName} — 7-Day Forecast`);
   title.parent(display);
 
-  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const daysOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
   for (let i = 0; i < dates.length; i++) {
     const date = new Date(dates[i]);
     const dayName = daysOfWeek[date.getDay()];
-    const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    const avgTemp = Math.round((tempMax[i] + tempMin[i]) / 2);
 
     const dayCard = createElement("div");
     dayCard.class("day-card");
     dayCard.html(`
-      <div class="day-header">
-        <span class="day-name">${dayName}</span>
-        <span class="date">${dateStr}</span>
-      </div>
+      <div class="date-header">📅 ${dateStr} (${dayName})</div>
       <div class="weather-details">
-        <div class="detail-item">
-          <span class="detail-label">🌡️ Temperature</span>
-          <span class="detail-value">${tempMax[i]}° / ${tempMin[i]}° ${tempUnit}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">💧 Humidity</span>
-          <span class="detail-value">${humidity[i]}%</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">💨 Wind Speed</span>
-          <span class="detail-value">${windSpeed[i]} ${windUnit}</span>
-        </div>
+        <div class="detail-line">(celsius degrees) ${avgTemp} ${tempUnit}</div>
+        <div class="detail-line">(wind speed) ${windSpeed[i]} ${windUnit}</div>
+        <div class="detail-line">(max humidity) ${humidity[i]} %</div>
       </div>
     `);
     dayCard.parent(display);
