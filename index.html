@@ -2,16 +2,40 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>City Temperature</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>European Weather Grid – Data Art</title>
     <link rel="stylesheet" href="style.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
   </head>
   <body>
-    <div id="controls">
-      <label for="citySelect">Choose a city:</label>
-      <select id="citySelect"></select>
+    <div id="loading">Fetching live data from 7 cities…</div>
+
+    <!-- Main CSS Grid container -->
+    <div id="dashboard">
+
+      <!-- Title row (spans full width) -->
+      <div id="title-area">
+        <h1 id="main-title">🌍 European Weather Dashboard</h1>
+        <p id="subtitle">7‑day forecast · Temperature · Air Quality · Humidity · Wind</p>
+      </div>
+
+      <!-- Empty corner (top-left, above city labels) -->
+      <div id="corner-spacer"></div>
+
+      <!-- Date headers row -->
+      <div id="date-headers"></div>
+
+      <!-- City labels column -->
+      <div id="city-labels"></div>
+
+      <!-- p5 canvas goes here -->
+      <div id="canvas-container"></div>
+
     </div>
-    <div id="display"></div>
+
+    <!-- Footer legend -->
+    <div id="footer">Data: Open-Meteo · Cubes auto-rotate every 2s</div>
+
     <script src="sketch.js"></script>
   </body>
 </html>
