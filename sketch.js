@@ -12,6 +12,7 @@ const CITIES = [
 const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// ── Data fetching ──────────────────────────────────
 async function fetchCityData(city, retries = 2) {
   const weatherURL =
     `https://api.open-meteo.com/v1/forecast` +
@@ -88,32 +89,40 @@ function buildGridData(allCitiesData) {
   return { grid, headerDates, numCities: validCities.length, numCols: columns };
 }
 
-function buildOverlays(headerDates, numCities) {
-  const dateHeadersDiv = document.getElementById("date-headers");
-  dateHeadersDiv.innerHTML = "";
-  headerDates.forEach((hdr) => {
-    const hdrDiv = document.createElement("div");
-    hdrDiv.className = "date-header";
-    hdrDiv.innerHTML = `<span>${hdr.dayName}</span><span>${hdr.dateStr}</span>`;
-    dateHeadersDiv.appendChild(hdrDiv);
-  });
-
-  const cityLabelsDiv = document.getElementById("city-labels");
-  cityLabelsDiv.innerHTML = "";
-  const cityNames = CITIES.map(c => c.name);
-  cityNames.forEach((name) => {
-    const lbl = document.createElement("div");
-    lbl.className = "city-label";
-    lbl.textContent = name;
-    cityLabelsDiv.appendChild(lbl);
-  });
+// ── Texture builders for titles (uses native system font) ──
+function buildColumnHeaderTexture(p, dayName, dateStr) {
+  const g = p.createGraphics(256, 128);
+  g.textAlign(g.CENTER, g.CENTER);
+  g.textFont("Arial, Helvetica, sans-serif");
+  g.fill(144, 205, 244);
+  g.textStyle(g.BOLD);
+  g.textSize(36);
+  g.text(dayName, 128, 42);
+  g.fill(255);
+  g.textSize(30);
+  g.text(dateStr, 128, 90);
+  return g;
 }
 
-function startSketch(cellData, numCities, numCols) {
+function buildCityLabelTexture(p, cityName) {
+  const g = p.createGraphics(256, 64);
+  g.textAlign(g.CENTER, g.CENTER);
+  g.textFont("Arial, Helvetica, sans-serif");
+  g.fill(246, 173, 85);
+  g.textStyle(g.BOLD);
+  g.textSize(36);
+  g.text(cityName, 128, 32);
+  return g;
+}
+
+// ── p5 instance ────────────────────────────────────
+function startSketch(cellData, headerDates, numCities, numCols) {
   new p5((p) => {
     let gridCells = [];
     let sharedBackTex, sharedTopTex;
     let canvasZoom = 1;
+    let colHeaderTextures = [];
+    let rowLabelTextures = [];
     const canvasContainer = document.getElementById("canvas-container");
 
     p.setup = () => {
@@ -126,6 +135,7 @@ function startSketch(cellData, numCities, numCols) {
       canvas.elt.style.width  = w + "px";
       canvas.elt.style.height = h + "px";
 
+      // Build cube textures
       sharedBackTex = createMetricTexture(p, "DATA", "p5.js", "#333");
       sharedTopTex  = createMetricTexture(p, "LIVE", "grid", "#2a2a2a");
 
@@ -149,29 +159,56 @@ function startSketch(cellData, numCities, numCols) {
         cell.faceIndex = 0;
         cell.nextChangeTime = p.millis() + 2000;
       });
+
+      // Build title textures once (native font, no external files)
+      colHeaderTextures = headerDates.map(hdr =>
+        buildColumnHeaderTexture(p, hdr.dayName, hdr.dateStr)
+      );
+      rowLabelTextures = CITIES.map(city =>
+        buildCityLabelTexture(p, city.name)
+      );
     };
 
     p.draw = () => {
       const cw = p.width;
       const ch = p.height;
-      const cellW = cw / numCols;
-      const cellH = ch / numCities;
 
-      p.background(10, 20, 35);
+      // Keep the default Y‑up projection (top of screen is positive Y)
       p.ortho(-cw/2, cw/2, -ch/2, ch/2, -1000, 1000);
 
+      // Layout margins – all in Y‑up coordinates
+      const headerHeight = p.constrain(ch * 0.12, 30, 80);
+      const labelWidth   = p.constrain(cw * 0.08, 50, 120);
+
+      // In Y‑up: -ch/2 is the top of the canvas (screen top)
+      const headerTop    = -ch/2;
+      const headerBottom = headerTop + headerHeight;   // bottom of header band (still high)
+      const gridTop      = headerBottom;               // top of cube grid
+      const gridBottom   = ch/2;                       // bottom of canvas
+      const gridLeft     = -cw/2 + labelWidth;
+      const gridRight    =  cw/2;
+
+      const gridW = gridRight - gridLeft;
+      const gridH = gridBottom - gridTop;              // positive
+      const cellW = gridW / numCols;
+      const cellH = gridH / numCities;
+
+      p.background(10, 20, 35);
+
+      // ── Grid background ──
       p.push();
       p.noStroke();
       p.fill(20, 30, 45);
       for (let col = 0; col < numCols; col++) {
         for (let row = 0; row < numCities; row++) {
-          const x = -cw/2 + col * cellW + cellW/2;
-          const y = ch/2 - row * cellH - cellH/2;
+          const x = gridLeft + col * cellW + cellW/2;
+          const y = gridTop + row * cellH + cellH/2;   // row 0 at top
           p.rect(x, y, cellW, cellH);
         }
       }
       p.pop();
 
+      // ── Cubes ──
       p.push();
       const now = p.millis();
       gridCells.forEach((cell) => {
@@ -188,8 +225,8 @@ function startSketch(cellData, numCities, numCols) {
         cell.rx = p.lerp(cell.rx, cell.targetRX, 0.08);
         cell.ry = p.lerp(cell.ry, cell.targetRY, 0.08);
 
-        const cx = -cw/2 + cell.col * cellW + cellW/2;
-        const cy = ch/2 - cell.row * cellH - cellH/2;
+        const cx = gridLeft + cell.col * cellW + cellW/2;
+        const cy = gridTop + cell.row * cellH + cellH/2;
         const s = p.min(cellW, cellH) * 0.65;
 
         p.push();
@@ -208,12 +245,36 @@ function startSketch(cellData, numCities, numCols) {
         p.pop();
       });
       p.pop();
+
+      // ── Column headers (textured planes) – now correctly at the top ──
+      const hy = headerTop + headerHeight/2;   // centre of header band (negative Y)
+      for (let col = 0; col < numCols; col++) {
+        const hx = gridLeft + col * cellW + cellW/2;
+        p.push();
+        p.translate(hx, hy, 0);
+        p.noStroke();
+        p.texture(colHeaderTextures[col]);
+        p.plane(cellW, headerHeight);
+        p.pop();
+      }
+
+      // ── Row labels (textured planes, rotated -90°) ──
+      const labelX = -cw/2 + labelWidth/2;   // centre of left label band
+      for (let row = 0; row < numCities; row++) {
+        const ry = gridTop + row * cellH + cellH/2;
+        p.push();
+        p.translate(labelX, ry, 0);
+        p.rotateZ(-p.HALF_PI);   // rotate so the text reads vertically (top → bottom)
+        p.noStroke();
+        p.texture(rowLabelTextures[row]);
+        p.plane(cellH, labelWidth);
+        p.pop();
+      }
     };
 
-    // ── Canvas zoom via mouse wheel (only when cursor is over the canvas) ──
+    // ── Zoom via mouse wheel (unchanged) ──
     p.mouseWheel = (event) => {
       if (!p.canvas || !p.canvas.elt) return;
-
       event.preventDefault();
       const container = canvasContainer;
       const rect = container.getBoundingClientRect();
@@ -250,6 +311,7 @@ function startSketch(cellData, numCities, numCols) {
   });
 }
 
+// ── Metric texture helper (unchanged) ──
 function createMetricTexture(p, label, value, bgColor) {
   const g = p.createGraphics(256, 256);
   g.background(bgColor);
@@ -264,6 +326,7 @@ function createMetricTexture(p, label, value, bgColor) {
   return g;
 }
 
+// ── Boot ────────────────────────────────────────────
 (async function init() {
   try {
     const allCitiesData = [];
@@ -286,8 +349,7 @@ function createMetricTexture(p, label, value, bgColor) {
     dashboard.classList.add("visible");
 
     const { grid, headerDates, numCities, numCols } = buildGridData(validData);
-    buildOverlays(headerDates, numCities);
-    startSketch(grid, numCities, numCols);
+    startSketch(grid, headerDates, numCities, numCols);
   } catch (err) {
     document.getElementById("loading").textContent =
       "⚠️ Failed to load data. Check your connection and reload.";
