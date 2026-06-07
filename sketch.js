@@ -1,4 +1,4 @@
-// ── Cities (European capitals + Porto, Lisbon) ──
+// ── Cities ──
 const CITIES = [
   { name: "Porto",     lat: 41.15, lon: -8.61 },
   { name: "Lisbon",    lat: 38.72, lon: -9.14 },
@@ -10,10 +10,8 @@ const CITIES = [
 ];
 
 const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// ── Fetch weather + air quality ──
 async function fetchCityData(city, retries = 2) {
   const weatherURL =
     `https://api.open-meteo.com/v1/forecast` +
@@ -47,7 +45,6 @@ async function fetchCityData(city, retries = 2) {
   return { cityName: city.name, weather: weatherRes, air: airRes };
 }
 
-// ── Build grid data ──
 function buildGridData(allCitiesData) {
   const validCities = allCitiesData.filter(c => c !== null);
   if (validCities.length === 0) throw new Error("No city data available.");
@@ -91,9 +88,7 @@ function buildGridData(allCitiesData) {
   return { grid, headerDates, numCities: validCities.length, numCols: columns };
 }
 
-// ── Build HTML overlays inside the CSS Grid ──
 function buildOverlays(headerDates, numCities) {
-  // Date headers
   const dateHeadersDiv = document.getElementById("date-headers");
   dateHeadersDiv.innerHTML = "";
   headerDates.forEach((hdr) => {
@@ -103,7 +98,6 @@ function buildOverlays(headerDates, numCities) {
     dateHeadersDiv.appendChild(hdrDiv);
   });
 
-  // City labels
   const cityLabelsDiv = document.getElementById("city-labels");
   cityLabelsDiv.innerHTML = "";
   const cityNames = CITIES.map(c => c.name);
@@ -115,33 +109,32 @@ function buildOverlays(headerDates, numCities) {
   });
 }
 
-// ── Start single p5 instance ──
 function startSketch(cellData, numCities, numCols) {
   new p5((p) => {
     let gridCells = [];
     let sharedBackTex, sharedTopTex;
+    let canvasZoom = 1;
     const canvasContainer = document.getElementById("canvas-container");
 
     p.setup = () => {
-      // Canvas fills the container exactly
       const w = canvasContainer.clientWidth;
       const h = canvasContainer.clientHeight;
       const canvas = p.createCanvas(w, h, p.WEBGL);
       canvas.parent("canvas-container");
       p.pixelDensity(1);
 
-      // Shared textures
+      canvas.elt.style.width  = w + "px";
+      canvas.elt.style.height = h + "px";
+
       sharedBackTex = createMetricTexture(p, "DATA", "p5.js", "#333");
       sharedTopTex  = createMetricTexture(p, "LIVE", "grid", "#2a2a2a");
 
-      // Build gridCells
       const cityNamesOrder = CITIES.map(c => c.name);
       gridCells = cellData.map((d) => ({
         ...d,
         row: cityNamesOrder.indexOf(d.cityName)
       }));
 
-      // Individual textures
       gridCells.forEach((cell) => {
         cell.textures = {
           front: createMetricTexture(p, "TEMP", `${cell.temp} ${cell.tempUnit}`, "#ffa500"),
@@ -167,7 +160,6 @@ function startSketch(cellData, numCities, numCols) {
       p.background(10, 20, 35);
       p.ortho(-cw/2, cw/2, -ch/2, ch/2, -1000, 1000);
 
-      // Background grid cells
       p.push();
       p.noStroke();
       p.fill(20, 30, 45);
@@ -180,7 +172,6 @@ function startSketch(cellData, numCities, numCols) {
       }
       p.pop();
 
-      // Draw all cubes
       p.push();
       const now = p.millis();
       gridCells.forEach((cell) => {
@@ -207,17 +198,11 @@ function startSketch(cellData, numCities, numCols) {
         p.rotateY(cell.ry);
         p.noStroke();
 
-        // Front
         p.push(); p.translate(0, 0, s/2); p.texture(cell.textures.front); p.plane(s, s); p.pop();
-        // Right
         p.push(); p.translate(s/2, 0, 0); p.rotateY(p.HALF_PI); p.texture(cell.textures.right); p.plane(s, s); p.pop();
-        // Bottom
         p.push(); p.translate(0, s/2, 0); p.rotateX(-p.HALF_PI); p.texture(cell.textures.bottom); p.plane(s, s); p.pop();
-        // Left
         p.push(); p.translate(-s/2, 0, 0); p.rotateY(-p.HALF_PI); p.texture(cell.textures.left); p.plane(s, s); p.pop();
-        // Back
         p.push(); p.translate(0, 0, -s/2); p.rotateY(p.PI); p.texture(sharedBackTex); p.plane(s, s); p.pop();
-        // Top
         p.push(); p.translate(0, -s/2, 0); p.rotateX(p.HALF_PI); p.texture(sharedTopTex); p.plane(s, s); p.pop();
 
         p.pop();
@@ -225,15 +210,46 @@ function startSketch(cellData, numCities, numCols) {
       p.pop();
     };
 
+    // ── Canvas zoom via mouse wheel (only when cursor is over the canvas) ──
+    p.mouseWheel = (event) => {
+      if (!p.canvas || !p.canvas.elt) return;
+
+      event.preventDefault();
+      const container = canvasContainer;
+      const rect = container.getBoundingClientRect();
+      const offsetX = event.clientX - rect.left;
+      const offsetY = event.clientY - rect.top;
+
+      const oldZoom = canvasZoom;
+      canvasZoom *= (1 - event.deltaY * 0.001);
+      canvasZoom = p.constrain(canvasZoom, 0.5, 5);
+      const newZoom = canvasZoom;
+
+      const baseW = container.clientWidth;
+      const baseH = container.clientHeight;
+
+      p.canvas.elt.style.width  = baseW * newZoom + "px";
+      p.canvas.elt.style.height = baseH * newZoom + "px";
+
+      const contentX = (container.scrollLeft + offsetX) / oldZoom;
+      const contentY = (container.scrollTop  + offsetY) / oldZoom;
+      container.scrollLeft = contentX * newZoom - offsetX;
+      container.scrollTop  = contentY * newZoom - offsetY;
+
+      return false;
+    };
+
     p.windowResized = () => {
+      if (!p.canvas || !p.canvas.elt) return;
       const w = canvasContainer.clientWidth;
       const h = canvasContainer.clientHeight;
       p.resizeCanvas(w, h);
+      p.canvas.elt.style.width  = w * canvasZoom + "px";
+      p.canvas.elt.style.height = h * canvasZoom + "px";
     };
   });
 }
 
-// ── Helper: metric texture ──
 function createMetricTexture(p, label, value, bgColor) {
   const g = p.createGraphics(256, 256);
   g.background(bgColor);
@@ -248,7 +264,6 @@ function createMetricTexture(p, label, value, bgColor) {
   return g;
 }
 
-// ── Bootstrap ──
 (async function init() {
   try {
     const allCitiesData = [];
